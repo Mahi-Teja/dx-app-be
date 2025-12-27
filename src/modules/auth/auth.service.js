@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-import { userQuery } from "../users/user.query.js";
+import { userQuery } from "../user/user.query.js";
 import { ERROR_CODES } from "../../constants/errorCodes.js";
 import env from "../../config/env.js";
 import AppError from "../../helpers/AppError.js";
@@ -37,7 +37,7 @@ export async function register({ username, email, password }) {
   const user = await userQuery.create({
     username,
     email,
-    passwordHash,
+    password: passwordHash,
     isActive: true,
   });
 
@@ -46,6 +46,7 @@ export async function register({ username, email, password }) {
     id: user.id,
     username: user.username,
     email: user.email,
+    avatar: user.avatar,
   };
 }
 
@@ -64,10 +65,7 @@ export async function login({ email, password }) {
     );
   }
 
-  const user = await userQuery.findOne(
-    { email, isActive: true },
-    "+passwordHash"
-  );
+  const user = await userQuery.findOne({ email, isActive: true }, "+password");
 
   if (!user) {
     throw new AppError(
@@ -77,7 +75,7 @@ export async function login({ email, password }) {
     );
   }
 
-  const isMatch = await bcrypt.compare(password, user.passwordHash);
+  const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
     throw new AppError(
@@ -87,7 +85,7 @@ export async function login({ email, password }) {
     );
   }
 
-  const accessToken = jwt.sign({ sub: user.id }, env.AUTH.JWT_SECRET, {
+  const accessToken = jwt.sign({ sub: user._id }, env.AUTH.JWT_SECRET, {
     expiresIn: env.AUTH.JWT_EXPIRES_IN,
   });
 
