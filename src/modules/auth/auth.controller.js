@@ -1,5 +1,6 @@
 import * as authService from "./auth.service.js";
 import { ApiResponse } from "../../helpers/AppResponse.js";
+import env from "../../config/env.js";
 
 /**
  * ---------------------------------------------------
@@ -43,4 +44,3 @@ export const login = async (req, res) => {
     })
   );
 };
-export { login, register };
