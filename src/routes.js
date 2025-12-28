@@ -9,6 +9,8 @@ import authRoutes from "./modules/auth/auth.routes.js";
  * Protected modules
  */
 import userRoutes from "./modules/user/user.routes.js";
+import categoryRoutes from "./modules/categories/category.routes.js";
+
 const router = Router();
 
 /**
@@ -24,5 +26,6 @@ router.use("/auth", authRoutes);
  * ---------------------------------------------------
  */
 router.use("/user", userRoutes);
+router.use("/categories", categoryRoutes);
 
 export default router;

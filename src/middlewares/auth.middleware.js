@@ -13,11 +13,7 @@ export const authMiddleware =
     const token = getAuthToken(req, source);
 
     if (!token) {
-      throw new AppError(
-        ERROR_CODES.AUTH_REQUIRED,
-        "Authentication required",
-        401
-      );
+      throw new AppError(ERROR_CODES.AUTH_REQUIRED, "Authentication required", 401);
     }
 
     try {
@@ -30,10 +26,6 @@ export const authMiddleware =
 
       next();
     } catch {
-      throw new AppError(
-        ERROR_CODES.INVALID_TOKEN,
-        "Invalid or expired token",
-        401
-      );
+      throw new AppError(ERROR_CODES.INVALID_TOKEN, "Invalid or expired token", 401);
     }
   };
