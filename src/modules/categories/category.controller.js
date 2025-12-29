@@ -3,8 +3,6 @@ import AppError from "../../helpers/AppError.js";
 import { ApiResponse } from "../../helpers/AppResponse.js";
 import * as categoryService from "./category.service.js";
 
-// TODO " test Api routes"
-
 /**
  * POST /categories
  */
