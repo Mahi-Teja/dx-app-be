@@ -2,14 +2,19 @@ import { ERROR_CODES } from "../../constants/errorCodes.js";
 import AppError from "../../helpers/AppError.js";
 import { ApiResponse } from "../../helpers/AppResponse.js";
 import * as categoryService from "./category.service.js";
+import { validateObjectId } from "../../helpers/validateId.js";
 
 /**
+ * ---------------------------------------------------
  * POST /categories
+ * ---------------------------------------------------
  */
 export const create = async (req, res) => {
+  const { type, name, emoji, group } = req.body;
+
   const category = await categoryService.create({
     userId: req.user.id,
-    ...req.body,
+    data: { type, name, emoji, group },
   });
 
   res.status(201).json(
@@ -21,7 +26,9 @@ export const create = async (req, res) => {
 };
 
 /**
+ * ---------------------------------------------------
  * GET /categories
+ * ---------------------------------------------------
  */
 export const list = async (req, res) => {
   const categories = await categoryService.list({
@@ -35,59 +42,58 @@ export const list = async (req, res) => {
     })
   );
 };
+
 /**
- * GET /categories
+ * ---------------------------------------------------
+ * GET /categories/:id
+ * ---------------------------------------------------
  */
 export const getById = async (req, res) => {
-  const categories = await categoryService.getById({
+  const categoryId = req.params.id;
+  validateObjectId(categoryId, "categoryId");
+
+  const category = await categoryService.getById({
     userId: req.user.id,
-    categoryId: req.params.id,
+    categoryId,
   });
-  if (!categories)
-    res.status(200).json(
-      new ApiResponse({
-        statusCode: 200,
-        data: categories,
-        message: "No Results",
-      })
-    );
+
   res.status(200).json(
     new ApiResponse({
-      statusCode: 200,
-      data: categories,
-      message: "Fetched Category succesfully",
+      data: category,
+      message: "Fetched category successfully",
     })
   );
 };
 
 /**
+ * ---------------------------------------------------
  * PUT /categories/:id
+ * ---------------------------------------------------
  */
 export const update = async (req, res) => {
-  const { emoji, type, name, group } = req.body;
+  const categoryId = req.params.id;
+  validateObjectId(categoryId, "categoryId");
 
-  // intent check (controller-level)
-  if (emoji === undefined && type === undefined && name === undefined && group === undefined) {
+  const { emoji, name, group } = req.body;
+
+  // intent check
+  if (emoji === undefined && name === undefined && group === undefined) {
     throw new AppError(ERROR_CODES.NOTHING_TO_PERFORM, "Nothing to update", 400);
   }
 
-  // build update payload safely
   const updateData = {};
-
-  if (emoji !== undefined || emoji !== "") updateData.emoji = emoji;
-  if (type !== undefined) updateData.type = type;
+  if (emoji !== undefined) updateData.emoji = emoji;
   if (name !== undefined) updateData.name = name;
   if (group !== undefined) updateData.group = group;
 
   const category = await categoryService.update({
     userId: req.user.id,
-    categoryId: req.params.id,
+    categoryId,
     data: updateData,
   });
 
   res.status(200).json(
     new ApiResponse({
-      statusCode: 200,
       data: category,
       message: "Category updated successfully",
     })
@@ -95,12 +101,17 @@ export const update = async (req, res) => {
 };
 
 /**
+ * ---------------------------------------------------
  * DELETE /categories/:id
+ * ---------------------------------------------------
  */
 export const remove = async (req, res) => {
+  const categoryId = req.params.id;
+  validateObjectId(categoryId, "categoryId");
+
   await categoryService.remove({
     userId: req.user.id,
-    categoryId: req.params.id,
+    categoryId,
   });
 
   res.status(200).json(

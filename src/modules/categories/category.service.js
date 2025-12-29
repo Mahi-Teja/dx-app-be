@@ -7,14 +7,18 @@ import { categoryQuery } from "./category.query.js";
  * Create Category
  * ---------------------------------------------------
  */
-export async function create({ userId, name, type, emoji }) {
+export async function create({ userId, data }) {
+  const { name, type, emoji, group } = data;
+
   if (!name || !type) {
     throw new AppError(ERROR_CODES.INVALID_INPUT, "Category name and type are required", 400);
   }
 
+  const normalizedName = name.toLowerCase();
+
   const existing = await categoryQuery.findOne({
     userId,
-    name,
+    name: normalizedName,
     type,
     isDeleted: false,
   });
@@ -25,9 +29,10 @@ export async function create({ userId, name, type, emoji }) {
 
   return categoryQuery.create({
     userId,
-    name,
+    name: normalizedName,
     type,
     emoji,
+    group,
   });
 }
 
@@ -52,14 +57,23 @@ export async function list({ userId, query }) {
   });
 }
 
+/**
+ * ---------------------------------------------------
+ * Get Category By ID
+ * ---------------------------------------------------
+ */
 export async function getById({ userId, categoryId }) {
-  const filter = {
+  const category = await categoryQuery.findOne({
     _id: categoryId,
     userId,
     isDeleted: false,
-  };
+  });
 
-  return categoryQuery.findOne(filter);
+  if (!category) {
+    throw new AppError(ERROR_CODES.CATEGORY_NOT_FOUND, "Category not found", 404);
+  }
+
+  return category;
 }
 
 /**
@@ -77,24 +91,38 @@ export async function update({ userId, categoryId, data }) {
   if (!category) {
     throw new AppError(ERROR_CODES.CATEGORY_NOT_FOUND, "Category not found", 404);
   }
-  // 🚫 Reject empty strings explicitly
+
+  // 🚫 Reject empty strings
   if ("name" in data && data.name === "") {
     throw new AppError(ERROR_CODES.INVALID_INPUT, "Category name cannot be empty", 400);
-  }
-
-  if ("type" in data && data.type === "") {
-    throw new AppError(ERROR_CODES.INVALID_INPUT, "Category type cannot be empty", 400);
   }
 
   if ("emoji" in data && data.emoji === "") {
     throw new AppError(ERROR_CODES.INVALID_INPUT, "Category emoji cannot be empty", 400);
   }
-  return categoryQuery.updateById(categoryId, data);
+
+  if ("group" in data && data.group === "") {
+    throw new AppError(ERROR_CODES.INVALID_INPUT, "Category group cannot be empty", 400);
+  }
+
+  // 🚫 Category type must NEVER change
+  if ("type" in data && data.type !== category.type) {
+    throw new AppError(ERROR_CODES.INVALID_INPUT, "Category type cannot be changed", 400);
+  }
+
+  if ("name" in data) {
+    data.name = data.name.toLowerCase();
+  }
+
+  return categoryQuery.updateById(categoryId, {
+    ...data,
+    updatedAt: new Date(),
+  });
 }
 
 /**
  * ---------------------------------------------------
- * Delete Category (Soft)
+ * Delete Category (Soft Delete)
  * ---------------------------------------------------
  */
 export async function remove({ userId, categoryId }) {
