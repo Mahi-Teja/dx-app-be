@@ -48,7 +48,6 @@ const AccountSchema = new mongoose.Schema(
      */
     openingBalance: {
       type: Number,
-      default: 0,
     },
     /*
      Credit card specific fields

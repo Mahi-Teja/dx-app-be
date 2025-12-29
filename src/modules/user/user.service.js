@@ -13,11 +13,7 @@ export async function create(data) {
   const { username, email, password, dob, gender, avatar } = data;
 
   if (!username || !email || !password) {
-    throw new AppError(
-      ERROR_CODES.INVALID_INPUT,
-      "Username, email and password are required",
-      400
-    );
+    throw new AppError(ERROR_CODES.INVALID_INPUT, "Username, email and password are required", 400);
   }
 
   const existingUser = await userQuery.findOne({
@@ -25,24 +21,29 @@ export async function create(data) {
   });
 
   if (existingUser) {
-    throw new AppError(
-      ERROR_CODES.USER_ALREADY_EXISTS,
-      "User already exists",
-      409
-    );
+    throw new AppError(ERROR_CODES.USER_ALREADY_EXISTS, "User already exists", 409);
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  return userQuery.create({
+  const user = await userQuery.create({
     username,
     email,
-    passwordHash,
+    password: passwordHash,
     gender,
     dob,
     avatar,
     isActive: true,
   });
+  return {
+    userId: user._id,
+    email: user.email,
+    username: user.username,
+    gender: user.gender,
+    dob: user.dob,
+    avatar: user.avatar,
+    createdAt: user.createdAt,
+  };
 }
 
 /**

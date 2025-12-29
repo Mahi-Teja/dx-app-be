@@ -29,4 +29,7 @@ export const accountQuery = {
   softDeleteById(id) {
     return Account.findByIdAndUpdate(id, { isDeleted: true }, { new: true });
   },
+  updateBalance(accountId, delta) {
+    return Account.updateOne({ _id: accountId }, { $inc: { balance: delta } });
+  },
 };
