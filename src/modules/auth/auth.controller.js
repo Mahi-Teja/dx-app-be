@@ -44,3 +44,24 @@ export const login = async (req, res) => {
     })
   );
 };
+/**
+ * ---------------------------------------------------
+ * Logout User
+ * POST /auth/logout
+ * ---------------------------------------------------
+ */
+export const logout = async (req, res) => {
+  res.clearCookie("access_token", {
+    httpOnly: true,
+    secure: env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+
+  res.status(200).json(
+    new ApiResponse({
+      statusCode: 200,
+      data: null,
+      message: "Logout successful",
+    })
+  );
+};
