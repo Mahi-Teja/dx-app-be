@@ -24,7 +24,7 @@ export const create = async (req, res) => {
 /**
  * ---------------------------------------------------
  * Get Current User
- * GET /users/me
+ * GET /user/
  * ---------------------------------------------------
  */
 export const getById = async (req, res) => {

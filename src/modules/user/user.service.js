@@ -87,6 +87,12 @@ export async function update({ userId, data }) {
     updatedAt: new Date(),
   });
 }
+
+/**
+ * ---------------------------------------------------
+ * Update User Password
+ * ---------------------------------------------------
+ */
 export async function updatePassword({ userId, oldPassword, newPassword }) {
   const user = await userQuery.findById(userId);
 

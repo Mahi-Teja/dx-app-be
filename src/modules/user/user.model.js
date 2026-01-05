@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
       minlength: 3,
       maxlength: 16,
     },
+
     email: {
       type: String,
       required: [true, "Email is required"],
@@ -18,31 +19,46 @@ const userSchema = new mongoose.Schema(
       trim: true,
       match: [/^\S+@\S+\.\S+$/, "Please use a valid email address"],
     },
+
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        return this.authProvider === "password";
+      },
+      select: false,
     },
+
     avatar: {
       type: String,
       default: "https://api.dicebear.com/9.x/thumbs/svg?seed=default",
     },
+
+    authProvider: {
+      type: String,
+      enum: ["google", "password", "twitter", "apple", "github"],
+      required: true,
+    },
+
     gender: {
       type: String,
       enum: ["male", "female", "other", "prefer-not-to-say"],
     },
+
     dob: {
       type: Date,
     },
+
     isDeleted: {
       type: Boolean,
+      default: false,
     },
+
     isActive: {
       type: Boolean,
+      default: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 const User = mongoose.model("User", userSchema);
