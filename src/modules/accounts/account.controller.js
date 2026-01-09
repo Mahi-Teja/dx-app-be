@@ -11,29 +11,35 @@ import { validateObjectId } from "../../helpers/validateId.js";
  * ---------------------------------------------------
  */
 export const create = async (req, res) => {
-  const { name, type, balance, creditLimit, billingDay, dueInDays, icon, openingBalance } =
-    req.body;
+  const {
+    name,
+    type,
+    icon,
+    creditLimit,
+    billingDay,
+    dueInDays,
+    initialBalance, // <- IMPORTANT: renamed
+    asOf, // <- optional date
+  } = req.body;
 
-  // intent validation
   if (!name || !type) {
     throw new AppError(ERROR_CODES.INVALID_INPUT, "Account name and type are required", 400);
   }
 
-  const payload = {
+  const intent = {
     name: name.trim(),
     type: type.toLowerCase(),
+    icon,
+    creditLimit,
+    billingDay,
+    dueInDays,
+    initialBalance,
+    asOf,
   };
 
-  if (balance !== undefined) payload.balance = balance;
-  if (icon !== undefined) payload.icon = icon;
-  if (creditLimit !== undefined) payload.creditLimit = creditLimit;
-  if (billingDay !== undefined) payload.billingDay = billingDay;
-  if (dueInDays !== undefined) payload.dueInDays = dueInDays;
-  if (openingBalance !== undefined) payload.openingBalance = openingBalance;
-
-  const account = await accountService.create({
+  const account = await accountService.createAccount({
     userId: req.user.id,
-    data: payload,
+    intent,
   });
 
   res.status(201).json(
@@ -52,7 +58,7 @@ export const create = async (req, res) => {
  * ---------------------------------------------------
  */
 export const list = async (req, res) => {
-  const accounts = await accountService.list({
+  const accounts = await accountService.listAccounts({
     userId: req.user.id,
     query: req.query,
   });
@@ -75,7 +81,7 @@ export const getById = async (req, res) => {
   const accountId = req.params.id;
   validateObjectId(accountId, "Invalid account id");
 
-  const account = await accountService.getById({
+  const account = await accountService.getAccountById({
     userId: req.user.id,
     accountId,
   });
@@ -90,11 +96,11 @@ export const getById = async (req, res) => {
 
 /**
  * ---------------------------------------------------
- * Update Account
- * PATCH /accounts/:id
+ * Update Account Metadata
+ * PUT /accounts/:id
  * ---------------------------------------------------
  */
-export const update = async (req, res) => {
+export const updateMetadata = async (req, res) => {
   const accountId = req.params.id;
   validateObjectId(accountId, "Invalid account id");
 
@@ -110,17 +116,12 @@ export const update = async (req, res) => {
     throw new AppError(ERROR_CODES.NOTHING_TO_PERFORM, "Nothing to update", 400);
   }
 
-  const data = {};
-  if (name !== undefined) data.name = name;
-  if (icon !== undefined) data.icon = icon;
-  if (creditLimit !== undefined) data.creditLimit = creditLimit;
-  if (billingDay !== undefined) data.billingDay = billingDay;
-  if (dueInDays !== undefined) data.dueInDays = dueInDays;
+  const patch = { name, icon, creditLimit, billingDay, dueInDays };
 
-  const account = await accountService.update({
+  const account = await accountService.updateAccountMetadata({
     userId: req.user.id,
     accountId,
-    data,
+    patch,
   });
 
   res.status(200).json(
@@ -141,7 +142,7 @@ export const remove = async (req, res) => {
   const accountId = req.params.id;
   validateObjectId(accountId, "Invalid account id");
 
-  await accountService.remove({
+  await accountService.archiveAccount({
     userId: req.user.id,
     accountId,
   });
@@ -149,7 +150,7 @@ export const remove = async (req, res) => {
   res.status(200).json(
     new ApiResponse({
       data: null,
-      message: "Account deleted successfully",
+      message: "Account archived successfully",
     })
   );
 };

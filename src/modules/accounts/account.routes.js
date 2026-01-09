@@ -13,7 +13,7 @@ router.use(authMiddleware("both"));
 router.post("/create", asyncHandler(controller.create));
 router.get("/get", asyncHandler(controller.list));
 router.get("/get/:id", asyncHandler(controller.getById));
-router.put("/update/:id", asyncHandler(controller.update));
+router.put("/update/:id", asyncHandler(controller.updateMetadata));
 router.delete("/delete/:id", asyncHandler(controller.remove));
 
 export default router;
