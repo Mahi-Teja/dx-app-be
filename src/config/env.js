@@ -35,6 +35,7 @@ const env = Object.freeze({
   DB: {
     MONGO_URI: required("MONGO_URI"),
   },
+  ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
 
   AUTH: {
     JWT_SECRET: required("JWT_SECRET"),
@@ -43,9 +44,7 @@ const env = Object.freeze({
 
   SECURITY: {
     BCRYPT_ROUNDS: Number(process.env.BCRYPT_ROUNDS || 10),
-    RATE_LIMIT_WINDOW_MS: Number(
-      process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000
-    ),
+    RATE_LIMIT_WINDOW_MS: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
     RATE_LIMIT_MAX: Number(process.env.RATE_LIMIT_MAX || 100),
   },
 

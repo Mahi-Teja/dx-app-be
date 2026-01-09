@@ -1,293 +1,177 @@
-import { updateBalance } from "../../coreLogic/updateBalance.js";
-import { ERROR_CODES } from "../../constants/errorCodes.js";
-import AppError from "../../helpers/AppError.js";
-import { accountQuery } from "../accounts/account.query.js";
-import { categoryQuery } from "../categories/category.query.js";
+import mongoose from "mongoose";
 import { transactionQuery } from "./transaction.query.js";
+import { accountQuery } from "../accounts/account.query.js";
+import { updateBalance } from "../../coreLogic/updateBalance.js";
+import AppError from "../../helpers/AppError.js";
+import { ERROR_CODES } from "../../constants/errorCodes.js";
+import shiftOpeningBalanceIfNeeded from "../../coreLogic/shiftOpeningBalance.js";
 
-/* ---------------------------------------------------
- * Internal helpers
- * --------------------------------------------------- */
+/**
+ * ---------------------------------------------------
+ * Helpers
+ * ---------------------------------------------------
+ */
 
-function aggregateDeltas(deltas = []) {
+function aggregateDeltas(deltas) {
   const map = new Map();
 
   for (const { accountId, delta } of deltas) {
-    map.set(accountId, (map.get(accountId) || 0) + delta);
+    const key = String(accountId);
+    map.set(key, (map.get(key) || 0) + delta);
   }
 
-  return Array.from(map.entries()).map(([accountId, delta]) => ({
-    accountId,
-    delta,
-  }));
+  return Array.from(map.entries())
+    .filter(([, delta]) => delta !== 0)
+    .map(([accountId, delta]) => ({ accountId, delta }));
 }
 
-async function applyDeltas(deltas = []) {
-  console.log(deltas);
+/**
+ * ---------------------------------------------------
+ * Service
+ * ---------------------------------------------------
+ */
 
-  for (const { accountId, delta } of deltas) {
-    await accountQuery.updateBalance(accountId, delta);
-  }
-}
+export const transactionService = {
+  async list({ userId, query }) {
+    const { limit = 50, offset = 0, type, accountId, categoryId, startDate, endDate } = query;
 
-/* ---------------------------------------------------
- * Create Transaction
- * --------------------------------------------------- */
-export async function create({ userId, data }) {
-  const { type, amount, accountId, categoryId, occurredAt, note } = data;
+    const filter = { userId, isDeleted: false };
 
-  if (!type || amount === undefined || amount <= 0 || !accountId) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "type, amount (>0) and accountId are required",
-      400
-    );
-  }
+    if (type) filter.type = type;
+    if (accountId) filter.accountId = accountId;
+    if (categoryId) filter.categoryId = categoryId;
 
-  // 1️⃣ Fetch dependencies
-  const [account, category] = await Promise.all([
-    accountQuery.findOne({ _id: accountId, userId, isDeleted: false }),
-    categoryId ? categoryQuery.findOne({ _id: categoryId, userId, isDeleted: false }) : null,
-  ]);
-
-  if (!account) {
-    throw new AppError(ERROR_CODES.ACCOUNT_NOT_FOUND, "Account not found", 404);
-  }
-
-  if (categoryId && !category) {
-    throw new AppError(ERROR_CODES.CATEGORY_NOT_FOUND, "Category not found", 404);
-  }
-
-  if (category && category.type !== type) {
-    throw new AppError(
-      ERROR_CODES.INVALID_INPUT,
-      "Category type does not match transaction type",
-      400
-    );
-  }
-
-  // 2️⃣ Compute balance deltas
-  const deltas = updateBalance({
-    operation: "create",
-    before: null,
-    after: { ...data, accountType: account.type },
-  });
-
-  // 3️⃣ Apply deltas
-  await applyDeltas(aggregateDeltas(deltas));
-
-  // 4️⃣ Persist transaction
-  return transactionQuery.create({
-    userId,
-    type,
-    amount,
-    accountId,
-    categoryId,
-    occurredAt,
-    note,
-  });
-}
-
-/* ---------------------------------------------------
- * List Transactions
- * --------------------------------------------------- */
-export async function list({ userId, query }) {
-  const { limit = 50, offset = 0, type, accountId, categoryId, startDate, endDate } = query;
-
-  const filter = { userId, isDeleted: false };
-
-  if (type) filter.type = type;
-  if (accountId) filter.accountId = accountId;
-  if (categoryId) filter.categoryId = categoryId;
-
-  if (startDate || endDate) {
-    filter.occurredAt = {};
-    if (startDate) filter.occurredAt.$gte = new Date(startDate);
-    if (endDate) filter.occurredAt.$lte = new Date(endDate);
-  }
-
-  return transactionQuery.find(filter, {
-    limit: Number(limit),
-    offset: Number(offset),
-  });
-}
-
-/* ---------------------------------------------------
- * Get Transaction By ID
- * --------------------------------------------------- */
-export async function getById({ userId, transactionId }) {
-  const transaction = await transactionQuery.findOne({
-    _id: transactionId,
-    userId,
-    isDeleted: false,
-  });
-
-  if (!transaction) {
-    throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
-  }
-
-  return transaction;
-}
-
-/* ---------------------------------------------------
- * Update One Transaction
- * --------------------------------------------------- */
-export async function updateOne({ userId, transactionId, data }) {
-  const before = await transactionQuery.findOne({
-    _id: transactionId,
-    userId,
-    isDeleted: false,
-  });
-
-  if (!before) {
-    throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
-  }
-
-  const allowedUpdates = {};
-
-  if ("amount" in data) {
-    if (data.amount <= 0) {
-      throw new AppError(ERROR_CODES.VALIDATION_ERROR, "Amount must be > 0", 400);
+    if (startDate || endDate) {
+      filter.occurredAt = {};
+      if (startDate) filter.occurredAt.$gte = new Date(startDate);
+      if (endDate) filter.occurredAt.$lte = new Date(endDate);
     }
-    allowedUpdates.amount = data.amount;
-  }
 
-  if ("categoryId" in data) allowedUpdates.categoryId = data.categoryId;
-  if ("accountId" in data) allowedUpdates.accountId = data.accountId;
-  if ("occurredAt" in data) allowedUpdates.occurredAt = data.occurredAt;
-  if ("note" in data) allowedUpdates.note = data.note;
-
-  if (Object.keys(allowedUpdates).length === 0) {
-    throw new AppError(ERROR_CODES.NOTHING_TO_PERFORM, "Nothing to update", 400);
-  }
-
-  // fetch new account if accountId changed
-  let account = null;
-  if (allowedUpdates.accountId) {
-    account = await accountQuery.findOne({
-      _id: allowedUpdates.accountId,
-      userId,
-      isDeleted: false,
+    return transactionQuery.find(filter, {
+      limit: Number(limit),
+      offset: Number(offset),
     });
+  },
 
-    if (!account) {
-      throw new AppError(ERROR_CODES.ACCOUNT_NOT_FOUND, "Account not found", 404);
+  async create({ userId, intent }) {
+    if (intent.type === "transfer" && String(intent.accountId) === String(intent.toAccountId)) {
+      throw new AppError(ERROR_CODES.INVALID_INPUT, "Cannot transfer to same account", 400);
     }
-  }
 
-  const after = {
-    ...before.toObject(),
-    ...allowedUpdates,
-    accountType: account?.type,
-  };
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  // compute and apply deltas
-  const deltas = updateBalance({
-    operation: "update",
-    before,
-    after,
-  });
+    try {
+      // Idempotency
+      if (intent.clientTxnId) {
+        const existing = await transactionQuery.findOne(
+          { userId, clientTxnId: intent.clientTxnId },
+          { session }
+        );
+        if (existing) return existing;
+      }
 
-  await applyDeltas(aggregateDeltas(deltas));
+      await shiftOpeningBalanceIfNeeded({ userId, txn: intent, session });
 
-  return transactionQuery.updateById(transactionId, {
-    ...allowedUpdates,
-    updatedAt: new Date(),
-  });
-}
+      const deltas = updateBalance({
+        operation: "create",
+        before: null,
+        after: intent,
+      });
 
-/* ---------------------------------------------------
- * Update Many Transactions
- * --------------------------------------------------- */
-export async function updateMany({ userId, transactionIds, data }) {
-  if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
-    throw new AppError(ERROR_CODES.INVALID_INPUT, "transactionIds[] required", 400);
-  }
+      for (const { accountId, delta } of deltas) {
+        await accountQuery.updateBalance(accountId, delta, { session });
+      }
 
-  const transactions = await transactionQuery.find({
-    _id: { $in: transactionIds },
-    userId,
-    isDeleted: false,
-  });
+      const [transaction] = await transactionQuery.create({ ...intent, userId }, { session });
 
-  if (!transactions.length) return { modifiedCount: 0 };
+      await session.commitTransaction();
+      return transaction;
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  },
 
-  let allDeltas = [];
+  async updateOne({ userId, transactionId, patch }) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  for (const before of transactions) {
-    const after = { ...before.toObject(), ...data };
-    allDeltas.push(
-      ...updateBalance({
-        operation: "update",
-        before,
-        after,
-      })
-    );
-  }
+    try {
+      const before = await transactionQuery
+        .findOne({ _id: transactionId, userId, isDeleted: false })
+        .session(session);
 
-  await applyDeltas(aggregateDeltas(allDeltas));
+      if (!before) {
+        throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
+      }
 
-  return transactionQuery.updateMany(
-    { _id: { $in: transactionIds }, userId, isDeleted: false },
-    { ...data, updatedAt: new Date() }
-  );
-}
+      // Forbid changing money semantics
+      if (
+        "amount" in patch ||
+        "direction" in patch ||
+        "accountId" in patch ||
+        "toAccountId" in patch ||
+        "type" in patch
+      ) {
+        throw new AppError(ERROR_CODES.INVALID_INPUT, "Cannot change money semantics", 400);
+      }
 
-/* ---------------------------------------------------
- * Delete One Transaction
- * --------------------------------------------------- */
-export async function deleteOne({ userId, transactionId }) {
-  const before = await transactionQuery.findOne({
-    _id: transactionId,
-    userId,
-    isDeleted: false,
-  });
+      const after = { ...before.toObject(), ...patch };
 
-  if (!before) {
-    throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
-  }
+      await shiftOpeningBalanceIfNeeded({ userId, txn: before, session });
+      await shiftOpeningBalanceIfNeeded({ userId, txn: after, session });
 
-  const deltas = updateBalance({
-    operation: "delete",
-    before,
-    after: null,
-  });
+      const deltas = updateBalance({ operation: "update", before, after });
 
-  await applyDeltas(aggregateDeltas(deltas));
+      for (const { accountId, delta } of deltas) {
+        await accountQuery.updateBalance(accountId, delta, { session });
+      }
 
-  await transactionQuery.softDeleteById(transactionId);
-}
+      const updated = await transactionQuery.updateById(transactionId, patch, { session });
 
-/* ---------------------------------------------------
- * Delete Many Transactions
- * --------------------------------------------------- */
-export async function deleteMany({ userId, transactionIds }) {
-  if (!Array.isArray(transactionIds) || transactionIds.length === 0) {
-    throw new AppError(ERROR_CODES.INVALID_INPUT, "transactionIds[] required", 400);
-  }
+      await session.commitTransaction();
+      return updated;
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  },
 
-  const transactions = await transactionQuery.find({
-    _id: { $in: transactionIds },
-    userId,
-    isDeleted: false,
-  });
+  async deleteOne({ userId, transactionId }) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-  let allDeltas = [];
+    try {
+      const before = await transactionQuery
+        .findOne({ _id: transactionId, userId, isDeleted: false })
+        .session(session);
 
-  for (const txn of transactions) {
-    allDeltas.push(
-      ...updateBalance({
-        operation: "delete",
-        before: txn,
-        after: null,
-      })
-    );
-  }
+      if (!before) {
+        throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
+      }
 
-  await applyDeltas(aggregateDeltas(allDeltas));
+      await shiftOpeningBalanceIfNeeded({ userId, txn: before, session });
 
-  await transactionQuery.updateMany(
-    { _id: { $in: transactionIds }, userId, isDeleted: false },
-    { isDeleted: true, deletedAt: new Date() }
-  );
-}
+      const deltas = updateBalance({ operation: "delete", before, after: null });
+
+      for (const { accountId, delta } of deltas) {
+        await accountQuery.updateBalance(accountId, delta, { session });
+      }
+
+      await transactionQuery.softDeleteById(transactionId, { session });
+
+      await session.commitTransaction();
+      return { success: true };
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  },
+};

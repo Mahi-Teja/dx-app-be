@@ -57,5 +57,3 @@ This structure ensures:
 - **ES Modules (ESM)**
 - **JWT (cookie-based auth)**
 - **bcrypt (password hashing)**
-
----

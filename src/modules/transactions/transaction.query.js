@@ -2,90 +2,102 @@ import Transaction from "./transaction.model.js";
 
 export const transactionQuery = {
   /**
-   * ---------------------------------------------------
    * Create
-   * ---------------------------------------------------
+   * NOTE: Always returns ARRAY (mongoose quirk)
    */
-  create(data) {
-    return Transaction.create(data);
+  create(data, { session } = {}) {
+    return Transaction.create(Array.isArray(data) ? data : [data], { session });
   },
 
   /**
-   * ---------------------------------------------------
-   * Find many (paginated)
-   * ---------------------------------------------------
+   * Find with pagination
    */
-  find(filters = {}, options = {}) {
-    const { offset = 0, limit = 50, sort = { createdAt: -1 } } = options;
+  async find(filters = {}, options = {}) {
+    const limit = Math.min(Number(options.limit) || 20, 100);
+    const offset = Math.max(0, Number(options.offset) || 0);
 
-    return Transaction.find(filters).sort(sort).skip(offset).limit(limit);
+    const [transactions, total] = await Promise.all([
+      Transaction.find(filters).sort({ occurredAt: -1, _id: -1 }).skip(offset).limit(limit).lean(),
+      Transaction.countDocuments(filters),
+    ]);
+
+    return {
+      transactions,
+      pagination: { total, limit, offset },
+    };
   },
 
   /**
-   * ---------------------------------------------------
-   * Find one by filter
-   * ---------------------------------------------------
+   * Find one
    */
-  findOne(filters = {}) {
-    return Transaction.findOne(filters);
+  findOne(filters = {}, { session } = {}) {
+    return Transaction.findOne(filters).session(session);
   },
 
   /**
-   * ---------------------------------------------------
-   * Find by ID
-   * (use only when ID lookup is truly needed)
-   * ---------------------------------------------------
+   * Find many (no pagination)
    */
-  findById(id) {
-    return Transaction.findById(id);
+  findMany(filters, { session } = {}) {
+    return Transaction.find(filters).session(session);
   },
 
   /**
-   * ---------------------------------------------------
-   * Update one by ID
-   * ---------------------------------------------------
+   * Update by id
    */
-  updateById(id, data) {
-    return Transaction.findByIdAndUpdate(id, data, {
-      new: true,
-      runValidators: true,
-    });
-  },
-
-  /**
-   * ---------------------------------------------------
-   * Update many by filter
-   * ---------------------------------------------------
-   */
-  updateMany(filters, data) {
-    return Transaction.updateMany(filters, data, { runValidators: true });
-  },
-
-  /**
-   * ---------------------------------------------------
-   * Soft delete one
-   * ---------------------------------------------------
-   */
-  softDeleteById(id) {
+  updateById(id, data, { session } = {}) {
     return Transaction.findByIdAndUpdate(
       id,
-      {
-        isDeleted: true,
-        deletedAt: new Date(),
-      },
-      { new: true }
+      { $set: data },
+      { new: true, runValidators: true, session }
     );
   },
 
   /**
-   * ---------------------------------------------------
-   * Soft delete many
-   * ---------------------------------------------------
+   * Soft delete one
    */
-  softDeleteMany(filters) {
-    return Transaction.updateMany(filters, {
-      isDeleted: true,
-      deletedAt: new Date(),
-    });
+  softDeleteById(id, { session } = {}) {
+    return Transaction.findByIdAndUpdate(
+      id,
+      { isDeleted: true, deletedAt: new Date() },
+      { new: true, session }
+    );
+  },
+
+  /**
+   * Soft delete many
+   */
+  softDeleteMany(filters, { session } = {}) {
+    return Transaction.updateMany(
+      filters,
+      { $set: { isDeleted: true, deletedAt: new Date() } },
+      { session }
+    );
+  },
+
+  /**
+   * Update many
+   */
+  updateMany(filters, data, { session } = {}) {
+    return Transaction.updateMany(
+      filters,
+      { $set: { ...data, updatedAt: new Date() } },
+      { session, runValidators: true }
+    );
+  },
+
+  /**
+   * Find opening balance checkpoint txn
+   */
+  findOpeningBalanceTxn({ userId, accountId }, { session } = {}) {
+    return Transaction.findOne(
+      {
+        userId,
+        accountId,
+        type: "opening_balance",
+        isDeleted: false,
+      },
+      null,
+      { session }
+    );
   },
 };

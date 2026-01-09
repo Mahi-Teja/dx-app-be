@@ -10,11 +10,22 @@ const TransactionSchema = new mongoose.Schema(
     },
 
     /**
-     * expense | income | transfer
+     * expense | income | transfer | opening_balance | adjustment
      */
     type: {
       type: String,
-      enum: ["expense", "income", "transfer"],
+      enum: ["expense", "income", "transfer", "opening_balance", "adjustment"],
+      required: true,
+      immutable: true,
+    },
+
+    /**
+     * debit = money leaves this account
+     * credit = money enters this account
+     */
+    direction: {
+      type: String,
+      enum: ["debit", "credit"],
       required: true,
       immutable: true,
     },
@@ -23,16 +34,11 @@ const TransactionSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: 0.01,
+      immutable: true,
     },
 
-    description: {
-      type: String,
-      trim: true,
-    },
+    description: { type: String, trim: true },
 
-    /**
-     * Category (expense / income only)
-     */
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
@@ -45,6 +51,7 @@ const TransactionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
       required: true,
+      index: true,
     },
 
     /**
@@ -53,12 +60,12 @@ const TransactionSchema = new mongoose.Schema(
     toAccountId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Account",
+      required: function () {
+        return this.type === "transfer";
+      },
     },
 
-    note: {
-      type: String,
-      trim: true,
-    },
+    note: { type: String, trim: true },
 
     occurredAt: {
       type: Date,
@@ -66,9 +73,11 @@ const TransactionSchema = new mongoose.Schema(
       index: true,
     },
 
-    /**
-     * Soft delete
-     */
+    timezone: {
+      type: String,
+      required: true,
+    },
+
     isDeleted: {
       type: Boolean,
       default: false,
@@ -76,35 +85,28 @@ const TransactionSchema = new mongoose.Schema(
     },
 
     /**
-     * Client-generated id for offline sync
+     * Offline sync / idempotency
      */
     clientTxnId: {
       type: String,
-      index: true,
     },
   },
-  {
-    timestamps: true, // createdAt, updatedAt
-  }
+  { timestamps: true }
 );
 
 /**
- * ---------------------------------------------------
  * Indexes
- * ---------------------------------------------------
  */
+TransactionSchema.index({ userId: 1, isDeleted: 1, occurredAt: -1 });
+TransactionSchema.index({ userId: 1, accountId: 1, isDeleted: 1, occurredAt: -1 });
+TransactionSchema.index({ userId: 1, categoryId: 1, isDeleted: 1, occurredAt: -1 });
 
-// Idempotency for offline sync (per user)
 TransactionSchema.index(
   { userId: 1, clientTxnId: 1 },
   {
     unique: true,
-    partialFilterExpression: {
-      clientTxnId: { $exists: true },
-    },
+    partialFilterExpression: { clientTxnId: { $type: "string" } },
   }
 );
-
-TransactionSchema.index({ userId: 1, accountId: 1, occurredAt: -1 });
 
 export default mongoose.model("Transaction", TransactionSchema);

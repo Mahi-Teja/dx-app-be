@@ -14,21 +14,38 @@ const app = express();
  */
 app.set("trust proxy", 1);
 
-/**
- * ---------------------------------------------------
- * Core middlewares (ORDER MATTERS)
- * ---------------------------------------------------
- */
-app.use(
-  cors({
-    origin: env.APP.CLIENT_URL || "http://localhost:3000",
-    credentials: true,
-  })
+export const ALLOWED_ORIGINS = new Set(
+  (env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean)
 );
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: false }));
+const corsOptions = {
+  origin(origin, callback) {
+    // Allow server-to-server, curl, postman, etc.
+    if (!origin) return callback(null, true);
 
+    if (ALLOWED_ORIGINS.has(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn("CORS blocked origin:", origin);
+    return callback(null, false); // DO NOT throw
+  },
+
+  credentials: true,
+
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Timezone"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 /**

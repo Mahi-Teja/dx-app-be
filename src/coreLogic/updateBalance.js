@@ -18,7 +18,7 @@
  * @property {number} amount
  * @property {string} accountId
  * @property {string} [toAccountId]
- * @property {string} [accountType] - optional (e.g. credit_card)
+ * @property {string} [directon]
  */
 
 /**
@@ -30,58 +30,34 @@
 /**
  * Compute balance deltas for a single transaction
  */
+/**
+ * direction-based, pure, trivial
+ */
+
 function computeImpact(txn) {
-  if (!txn) return [];
+  if (!txn || txn.amount <= 0) return [];
 
-  const { type, amount, accountId, toAccountId, accountType } = txn;
+  const delta = txn.direction === "credit" ? +txn.amount : -txn.amount;
 
-  if (amount <= 0) return [];
-
-  const isCreditCard = accountType === "credit_card";
-
-  switch (type) {
-    case "expense": {
-      return [
-        {
-          accountId,
-          delta: isCreditCard ? +amount : -amount,
-        },
-      ];
-    }
-
-    case "income": {
-      return [
-        {
-          accountId,
-          delta: isCreditCard ? -amount : +amount,
-        },
-      ];
-    }
-
-    case "transfer": {
-      if (!toAccountId || accountId === toAccountId) return [];
-
-      return [
-        { accountId, delta: -amount },
-        { accountId: toAccountId, delta: +amount },
-      ];
-    }
-
-    default:
+  if (txn.type === "transfer") {
+    if (!txn.toAccountId || String(txn.accountId) === String(txn.toAccountId)) {
       return [];
+    }
+
+    return [
+      { accountId: txn.accountId, delta: -txn.amount }, // source loses
+      { accountId: txn.toAccountId, delta: +txn.amount }, // dest gains
+    ];
   }
+
+  return [
+    {
+      accountId: txn.accountId,
+      delta,
+    },
+  ];
 }
 
-/**
- * Public API
- *
- * @param {Object} params
- * @param {"create"|"update"|"delete"} params.operation
- * @param {Transaction|null} params.before
- * @param {Transaction|null} params.after
- *
- * @returns {BalanceDelta[]}
- */
 export function updateBalance({ operation, before, after }) {
   let deltas = [];
 
@@ -94,7 +70,7 @@ export function updateBalance({ operation, before, after }) {
     case "delete": {
       deltas = computeImpact(before).map(({ accountId, delta }) => ({
         accountId,
-        delta: -delta, // reverse
+        delta: -delta,
       }));
       break;
     }
@@ -106,11 +82,11 @@ export function updateBalance({ operation, before, after }) {
       const net = new Map();
 
       for (const { accountId, delta } of beforeImpact) {
-        net.set(accountId, (net.get(accountId) || 0) - delta);
+        net.set(String(accountId), (net.get(String(accountId)) || 0) - delta);
       }
 
       for (const { accountId, delta } of afterImpact) {
-        net.set(accountId, (net.get(accountId) || 0) + delta);
+        net.set(String(accountId), (net.get(String(accountId)) || 0) + delta);
       }
 
       deltas = Array.from(net.entries())
