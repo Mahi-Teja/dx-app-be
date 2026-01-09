@@ -13,6 +13,8 @@ import categoryRoutes from "./modules/categories/category.routes.js";
 import accountRoutes from "./modules/accounts/account.routes.js";
 import transactionRoutes from "./modules/transactions/transaction.routes.js";
 
+import fnDataRoutes from "./modules/functional/fns.routes.js";
+
 const router = Router();
 
 /**
@@ -31,5 +33,6 @@ router.use("/user", userRoutes);
 router.use("/categories", categoryRoutes);
 router.use("/accounts", accountRoutes);
 router.use("/transactions", transactionRoutes);
+router.use("/data", fnDataRoutes);
 
 export default router;
