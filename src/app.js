@@ -1,3 +1,5 @@
+console.log("APP.JS LOADED");
+
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -73,6 +75,7 @@ app.get("/health", (req, res) => {
  * ---------------------------------------------------
  */
 app.use("/api/v1", routes);
+console.log("v1 routes hit");
 
 /**
  * ---------------------------------------------------
