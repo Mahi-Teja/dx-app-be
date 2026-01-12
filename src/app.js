@@ -9,7 +9,6 @@ import connectDB from "./database/connection.js";
 
 const app = express();
 
-console.log("APP.JS LOADED");
 await connectDB();
 /**
  * ---------------------------------------------------
@@ -86,8 +85,6 @@ app.get("/health", (req, res) => {
  * ---------------------------------------------------
  */
 app.use("/api/v1", routes);
-console.log("v1 routes hit");
-
 /**
  * ---------------------------------------------------
  * 404 handler

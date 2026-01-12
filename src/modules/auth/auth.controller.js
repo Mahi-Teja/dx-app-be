@@ -65,10 +65,17 @@ export const login = async (req, res) => {
 
   const isProd = env.NODE_ENV === "production";
 
+  // res.cookie("access_token", accessToken, {
+  //   httpOnly: true,
+  //   secure: isProd,
+  //   sameSite: isProd ? "none" : "lax",
+  //   maxAge: 7 * 24 * 60 * 60 * 1000,
+  // });
   res.cookie("access_token", accessToken, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    secure: true, // ALWAYS true on Vercel
+    sameSite: "none", // REQUIRED for Netlify -> Vercel
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
@@ -87,10 +94,16 @@ export const login = async (req, res) => {
  * ---------------------------------------------------
  */
 export const logout = async (req, res) => {
+  // res.clearCookie("access_token", {
+  //   httpOnly: true,
+  //   secure: env.NODE_ENV === "production",
+  //   sameSite: "strict",
+  // });
   res.clearCookie("access_token", {
     httpOnly: true,
-    secure: env.NODE_ENV === "production",
-    sameSite: "strict",
+    secure: true,
+    sameSite: "none",
+    path: "/",
   });
 
   res.status(200).json(
