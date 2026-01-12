@@ -3,6 +3,6 @@ import connectDB from "./database/connection.js";
 
 console.log("SERVER ENTRY LOADED");
 
-await connectDB();
+// await connectDB();
 
 export default app;

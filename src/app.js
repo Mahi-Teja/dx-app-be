@@ -1,14 +1,16 @@
-console.log("APP.JS LOADED");
-
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import env from "./config/env.js";
 import routes from "./routes.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
+import { ApiResponse } from "./helpers/AppResponse.js";
+import connectDB from "./database/connection.js";
 
 const app = express();
 
+console.log("APP.JS LOADED");
+await connectDB();
 /**
  * ---------------------------------------------------
  * Trust proxy (required for cookies in prod)
@@ -61,6 +63,15 @@ app.use(cookieParser());
  * Health check (no auth, no DB)
  * ---------------------------------------------------
  */
+app.arguments("/", () => {
+  return res.status(200).json(
+    new ApiResponse({
+      statusCode: 200,
+      data: { uptime: process.uptime(), timestamp: Date.now() },
+      message: "App running.",
+    })
+  );
+});
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
