@@ -63,7 +63,7 @@ app.use(cookieParser());
  * Health check (no auth, no DB)
  * ---------------------------------------------------
  */
-app.arguments("/", () => {
+app.get("/", () => {
   return res.status(200).json(
     new ApiResponse({
       statusCode: 200,
