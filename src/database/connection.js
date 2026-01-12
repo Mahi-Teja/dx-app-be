@@ -1,11 +1,10 @@
 import mongoose from "mongoose";
-import env from "../config/env";
 
 let cached = global.mongoose || { conn: null, promise: null };
 global.mongoose = cached;
 
 export default async function connectDB() {
-  const uri = env.DB.MONGO_URI;
+  const uri = process.env.MONGO_URI;
 
   if (!uri) throw new Error("MONGO_URI missing");
 
