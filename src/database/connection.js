@@ -1,7 +1,28 @@
 import mongoose from "mongoose";
-import env from "../config/env.js";
+import env from "../config/env";
+
+let cached = global.mongoose || { conn: null, promise: null };
+global.mongoose = cached;
 
 export default async function connectDB() {
-  await mongoose.connect(env.DB.MONGO_URI);
-  console.log("MongoDB connected");
+  console.log("CONNECTING TO MONGO...");
+  if (!env.MONGO_URI) {
+    throw new Error("MONGO_URI is missing");
+  }
+
+  if (cached.conn) {
+    console.log("Using cached Mongo connection");
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(env.MONGO_URI, {
+      bufferCommands: false,
+    });
+  }
+
+  cached.conn = await cached.promise;
+  console.log("MongoDB connected successfully");
+
+  return cached.conn;
 }
