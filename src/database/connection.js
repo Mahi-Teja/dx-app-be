@@ -1,28 +1,33 @@
 import mongoose from "mongoose";
-import env from "../config/env";
 
 let cached = global.mongoose || { conn: null, promise: null };
 global.mongoose = cached;
 
 export default async function connectDB() {
-  console.log("CONNECTING TO MONGO...");
-  if (!env.MONGO_URI) {
-    throw new Error("MONGO_URI is missing");
+  const uri = process.env.MONGO_URI;
+
+  console.log("MONGO_URI =", uri); // TEMP DEBUG
+
+  if (!uri) {
+    throw new Error("MONGO_URI is missing from environment variables");
   }
 
   if (cached.conn) {
-    console.log("Using cached Mongo connection");
+    console.log("Using cached MongoDB connection");
     return cached.conn;
   }
 
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(env.MONGO_URI, {
+  try {
+    cached.promise = mongoose.connect(uri, {
       bufferCommands: false,
+      serverSelectionTimeoutMS: 5000,
     });
+
+    cached.conn = await cached.promise;
+    console.log("MongoDB connected successfully");
+    return cached.conn;
+  } catch (err) {
+    console.error("MongoDB connection failed:", err);
+    throw err;
   }
-
-  cached.conn = await cached.promise;
-  console.log("MongoDB connected successfully");
-
-  return cached.conn;
 }
