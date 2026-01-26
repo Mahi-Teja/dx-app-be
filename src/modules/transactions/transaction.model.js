@@ -16,7 +16,6 @@ const TransactionSchema = new mongoose.Schema(
       type: String,
       enum: ["expense", "income", "transfer", "opening_balance", "adjustment"],
       required: true,
-      immutable: true,
     },
 
     /**
@@ -27,14 +26,12 @@ const TransactionSchema = new mongoose.Schema(
       type: String,
       enum: ["debit", "credit"],
       required: true,
-      immutable: true,
     },
 
     amount: {
       type: Number,
       required: true,
       min: 0.01,
-      immutable: true,
     },
 
     description: { type: String, trim: true },
@@ -66,6 +63,15 @@ const TransactionSchema = new mongoose.Schema(
     },
 
     note: { type: String, trim: true },
+    replaces: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Transaction",
+    },
+
+    replacedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Transaction",
+    },
 
     occurredAt: {
       type: Date,

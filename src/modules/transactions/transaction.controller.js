@@ -58,7 +58,6 @@ export const create = async (req, res) => {
     timezone,
     occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
   };
-
   const transaction = await transactionService.create({
     userId: req.user.id,
     intent,
@@ -128,7 +127,7 @@ export const updateOne = async (req, res) => {
   const { id } = req.params;
   validateObjectId(id, "transactionId");
 
-  const updated = await transactionService.updateOne({
+  const updated = await transactionService.editOne({
     userId: req.user.id,
     transactionId: id,
     patch: req.body,

@@ -24,6 +24,19 @@ function aggregateDeltas(deltas) {
     .filter(([, delta]) => delta !== 0)
     .map(([accountId, delta]) => ({ accountId, delta }));
 }
+function deltasFromTxn(txn) {
+  const deltas = [];
+
+  if (txn.type === "transfer") {
+    deltas.push({ accountId: txn.accountId, delta: -txn.amount });
+    deltas.push({ accountId: txn.toAccountId, delta: txn.amount });
+  } else {
+    const sign = txn.direction === "debit" ? -1 : 1;
+    deltas.push({ accountId: txn.accountId, delta: sign * txn.amount });
+  }
+
+  return deltas;
+}
 
 /**
  * ---------------------------------------------------
@@ -95,6 +108,76 @@ export const transactionService = {
     }
   },
 
+  async editOne({ userId, transactionId, patch }) {
+    // Forbid illegal edits
+    if ("userId" in patch || "clientTxnId" in patch) {
+      throw new AppError(ERROR_CODES.INVALID_INPUT, "Illegal field change", 400);
+    }
+
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // 1. Load old txn
+      const before = await transactionQuery
+        .findOne({ _id: transactionId, userId, isDeleted: false })
+        .session(session);
+
+      if (!before) {
+        throw new AppError(ERROR_CODES.TXN_NOT_FOUND, "Transaction not found", 404);
+      }
+
+      // 2. Build new txn snapshot
+      const afterData = {
+        ...before.toObject(),
+        ...patch,
+        _id: undefined,
+        createdAt: undefined,
+        updatedAt: undefined,
+        isDeleted: false,
+        replaces: before._id,
+        replacedBy: undefined,
+      };
+
+      // 3. Reverse old impact
+      const reverseDeltas = deltasFromTxn(before).map((d) => ({
+        accountId: d.accountId,
+        delta: -d.delta,
+      }));
+
+      const aggregatedReverse = aggregateDeltas(reverseDeltas);
+
+      for (const { accountId, delta } of aggregatedReverse) {
+        await accountQuery.updateBalance(accountId, delta, { session });
+      }
+
+      // 4. Mark old as deleted
+      before.isDeleted = true;
+      await before.save({ session });
+
+      // 5. Create new txn
+      const [created] = await transactionQuery.create(afterData, { session });
+
+      // 6. Apply new impact
+      const forwardDeltas = aggregateDeltas(deltasFromTxn(created));
+
+      for (const { accountId, delta } of forwardDeltas) {
+        await accountQuery.updateBalance(accountId, delta, { session });
+      }
+
+      // 7. Link old -> new
+      before.replacedBy = created._id;
+      await before.save({ session });
+
+      await session.commitTransaction();
+      return created;
+    } catch (e) {
+      await session.abortTransaction();
+      throw e;
+    } finally {
+      session.endSession();
+    }
+  },
   async updateOne({ userId, transactionId, patch }) {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -109,15 +192,14 @@ export const transactionService = {
       }
 
       // Forbid changing money semantics
-      if (
-        "amount" in patch ||
-        "direction" in patch ||
-        "accountId" in patch ||
-        "toAccountId" in patch ||
-        "type" in patch
-      ) {
-        throw new AppError(ERROR_CODES.INVALID_INPUT, "Cannot change money semantics", 400);
-      }
+      // if (
+      //   ("direction" in patch && before?.direction !== patch?.direction) ||
+      //   ("accountId" in patch && before?.accountId !== patch?.accountId) ||
+      //   ("toAccountId" in patch && before?.toAccountId !== patch?.toAccountId) ||
+      //   ("type" in patch && before?.type !== patch?.type)
+      // ) {
+      //   throw new AppError(ERROR_CODES.INVALID_INPUT, "Cannot change money semantics", 400);
+      // }
 
       const after = { ...before.toObject(), ...patch };
 
