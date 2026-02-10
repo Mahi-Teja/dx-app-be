@@ -40,6 +40,23 @@ export const transactionQuery = {
   findMany(filters, { session } = {}) {
     return Transaction.find(filters).session(session);
   },
+  /**
+   * Find many For Analytics
+   */
+  findManyAnalytics(filters) {
+    return (
+      Transaction.find(filters)
+        // .sort({ occurredAt: -1, _id: -1 })
+        .populate({
+          path: "categoryId",
+          select: "name type",
+        })
+        .populate({
+          path: "accountId",
+          select: "name balance",
+        })
+    );
+  },
 
   /**
    * Update by id

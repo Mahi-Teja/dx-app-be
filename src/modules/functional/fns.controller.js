@@ -22,15 +22,8 @@ const dashboardData = async (req, res) => {
     .json(new ApiResponse({ statusCode: 200, data: dashboard, message: "Dashboard data fetched" }));
 };
 
+export { dashboardData };
 
-const timePeriodTxns = async (req,res,next)=>{
-  const period = 'week'||'month'||'year'
-  const filterBy = 'byCategory' || 'byAccount'||null
-  // transactios with the filter
-  // group by period with income and expense and other data
-  // send the response
-}
-export { dashboardData ,timePeriodTxns};
 /**
  * RESPONSE: 
 {

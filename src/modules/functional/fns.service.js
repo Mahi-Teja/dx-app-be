@@ -17,7 +17,6 @@ const getDateRange = (startDate, endDate) => {
 export const getDashboard = async ({ userId, startDate, endDate, accountId }) => {
   const { start, end } = getDateRange(startDate, endDate);
   const userObjectId = new mongoose.Types.ObjectId(userId);
-
   const matchFilter = {
     userId: userObjectId,
     isDeleted: false,
@@ -32,7 +31,7 @@ export const getDashboard = async ({ userId, startDate, endDate, accountId }) =>
       $facet: {
         summary: [{ $group: { _id: "$type", total: { $sum: "$amount" } } }],
         recentTransactions: [
-          { $sort: { occurredAt: -1 } }, // Use occurredAt for chronological sorting
+          { $sort: { occurredAt: -1 } },
           { $limit: 10 },
           {
             $project: {
@@ -40,7 +39,7 @@ export const getDashboard = async ({ userId, startDate, endDate, accountId }) =>
               type: 1,
               categoryId: 1,
               accountId: 1,
-              occurredAt: 1, // Must match your frontend selector
+              occurredAt: 1,
               description: 1,
             },
           },
