@@ -14,6 +14,7 @@ import accountRoutes from "./modules/accounts/account.routes.js";
 import transactionRoutes from "./modules/transactions/transaction.routes.js";
 
 import fnDataRoutes from "./modules/functional/fns.routes.js";
+import { apiLimiter, authLimiter } from "./middlewares/rateimitter.js";
 
 const router = Router();
 
@@ -22,7 +23,9 @@ const router = Router();
  * Public routes (no auth)
  * ---------------------------------------------------
  */
-router.use("/auth", authRoutes);
+router.use("/auth", authLimiter, authRoutes);
+
+router.use("/", apiLimiter);
 
 /**
  * ---------------------------------------------------
