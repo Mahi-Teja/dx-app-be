@@ -23,7 +23,7 @@ export const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 60,
   keyGenerator: (req) => {
-    return req.user?.id || req.ip;
+    return req.user?.id || ipKeyGenerator(req.ip);
   },
 });
 export const aiApiLimiter = rateLimit({
