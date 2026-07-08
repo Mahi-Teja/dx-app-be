@@ -6,6 +6,7 @@ import routes from "./routes.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import { ApiResponse } from "./helpers/AppResponse.js";
 import connectDB from "./database/connection.js";
+import { rateLimiter } from "./middlewares/rateimitter.js";
 
 const app = express();
 
@@ -50,6 +51,11 @@ app.options("*", cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+/**
+ * Rate limitting
+ *
+ */
+app.use("/", rateLimiter);
 
 /**
  * ---------------------------------------------------
@@ -62,7 +68,7 @@ app.use(cookieParser());
  * Health check (no auth, no DB)
  * ---------------------------------------------------
  */
-app.get("/", () => {
+app.get("/", (req, res) => {
   return res.status(200).json(
     new ApiResponse({
       statusCode: 200,
