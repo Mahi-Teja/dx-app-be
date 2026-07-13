@@ -27,6 +27,9 @@ const userSchema = new mongoose.Schema(
       },
       select: false,
     },
+    passwordResetToken: String,
+    passwordResetTokenExpiry: Date,
+    passwordChangedAt: Date,
 
     avatar: {
       type: String,
@@ -35,7 +38,7 @@ const userSchema = new mongoose.Schema(
 
     authProvider: {
       type: String,
-      enum: ["google", "password", "twitter", "apple", "github"],
+      enum: ["google", "password", "twitter", "apple", "github", "microsoft", "meta"],
       required: true,
     },
 
