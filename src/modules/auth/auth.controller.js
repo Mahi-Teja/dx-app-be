@@ -2,7 +2,7 @@ import * as authService from "./auth.service.js";
 import { ApiResponse } from "../../helpers/AppResponse.js";
 import env from "../../config/env.js";
 import AppError from "../../helpers/AppError.js";
-import { sendMail, transport } from "../../helpers/sendEmail.js";
+import { sendMail } from "../../helpers/sendEmail.js";
 import { resetPasswordTemplate } from "../../helpers/resetEmailTemplate.js";
 
 export async function googleAuth(req, res) {

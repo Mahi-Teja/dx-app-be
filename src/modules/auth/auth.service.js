@@ -9,7 +9,6 @@ import env from "../../config/env.js";
 import AppError from "../../helpers/AppError.js";
 import { generateUniqueUsername, normalizeUsername } from "../../helpers/generateUsername.js";
 import { verifyGoogleIdToken } from "../../utility/googleAuth.js";
-import { transport } from "../../helpers/sendEmail.js";
 
 /* =====================================================
  * Zod Schemas (HARD SECURITY GATE)
